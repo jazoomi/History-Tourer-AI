@@ -3,25 +3,34 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
   return (
-    <View
-      style={styles.title}
-    >
-      <TouchableOpacity
-      style={{color: "blue", padding: 10, backgroundColor: "lightblue", borderRadius: 5}}
-      >
-        <Text> Start </Text> 
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.button}>
+        <Link href="/start" style={styles.linkText}>Start</Link>
       </TouchableOpacity>
-      <Link href="/start"> here </Link>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  title :{
+  container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    fontSize: 20,
+    backgroundColor: "#e6f5e6", // light green background
+  },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "#4caf50", // green button
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  linkText: {
+    color: "white",
+    fontSize: 18,
     fontWeight: "bold",
-  }
-})
+  },
+});
