@@ -1,5 +1,14 @@
 {
+  "name": "history-tourer-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "dev": "node --watch --env-file=.env src/index.js"
+  },
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^5.1.0",
     "groq-sdk": "^0.30.0"
   }
