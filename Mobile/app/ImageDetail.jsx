@@ -1,212 +1,365 @@
-import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Text, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import { StatusBar } from 'expo-status-bar';
+import * as FileSystem from 'expo-file-system/legacy';
+import { FontAwesome5 } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
+import { ENDPOINTS } from '../constants/api';
+import { colors, radius, spacing, type } from '../constants/theme';
+
+const REQUEST_TIMEOUT_MS = 90_000;
+
+async function postPrompt(prompt) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(ENDPOINTS.grok, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Server returned ${res.status}${text ? `: ${text}` : ''}`);
+    }
+    return await res.json();
+  }
+  catch (error) {
+    console.error('Error fetching image:', error);
+    throw new Error('Failed to fetch image. Please try again.');
+  }
+  finally {
+    clearTimeout(timer);
+  }
+}
+
+function describeError(error) {
+  if (error?.name === 'AbortError') {
+    return 'The historian took too long to respond. The image may be too large — try another photo or check that the backend is reachable.';
+  }
+  if (String(error?.message || '').toLowerCase().includes('network')) {
+    return "I couldn't reach the backend. Confirm both devices are on the same Wi-Fi and the server is running.";
+  }
+  return error?.message || 'Something went wrong. Please try again.';
+}
 
 export default function ImageDetail() {
-  const { photoUri, width, height } = useLocalSearchParams();
-  const [result, setResult] = React.useState(null);
-  const [prompt, setPrompt] = React.useState(photoUri);
-  const [userText, setUserText] = React.useState("");
-  useEffect(() => {
-    (async () => {
-      let base64Prompt;
-      try {
-        base64Prompt = await FileSystem.readAsStringAsync(photoUri, { encoding: FileSystem.EncodingType.Base64 });
-    }
-    catch (error) {
-        console.error("Error reading image file:", error);
-    }
-    base64Prompt = 'data:image/jpeg;base64,' + base64Prompt;
-    let request = base64Prompt;
-    
-    try {
-        const res = await fetch('http://192.168.2.23:3000/routes/grokRoute', {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify( { prompt: request} )
-        });
-        const data = await res.json();
-        setResult(data.answer);
-    }
-    catch (error) {
-        console.error("Error fetching image analysis:", error);
-    }
-})();
-  },[photoUri]);
+  const { photoUri } = useLocalSearchParams();
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userText, setUserText] = useState('');
+  const scrollRef = useRef(null);
 
-  //function to reset the AI when user goes back
+  const appendMessage = useCallback((message) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
+
+  const scrollToEnd = useCallback(() => {
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!photoUri) return;
+      setLoading(true);
+      try {
+        const base64 = await FileSystem.readAsStringAsync(photoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const dataUrl = 'data:image/jpeg;base64,' + base64;
+        console.log(`Sending image: ${(dataUrl.length / 1024).toFixed(0)} KB`);
+        const data = await postPrompt(dataUrl);
+        if (cancelled) return;
+        appendMessage({ role: 'assistant', content: data.answer });
+      } catch (error) {
+        console.error('Error analyzing image:', error);
+        if (!cancelled) {
+          appendMessage({
+            role: 'assistant',
+            content: describeError(error),
+            error: true,
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          scrollToEnd();
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [photoUri, appendMessage, scrollToEnd]);
+
   const resetAI = async () => {
     try {
-        const res = await fetch('http://192.168.2.23:3000/routes/grokRoute', {
-            method: "DELETE"
-        });
-            if (!res.ok) {
-      throw new Error(`Failed with status ${res.status}`);
+      await fetch(ENDPOINTS.grok, { method: 'DELETE' });
+    } catch (error) {
+      console.error('Error resetting AI:', error);
     }
-
-    }
-    catch (error) {
-        console.error("Error resetting AI:", error);
-    }
-    setResult(null);
-    setPrompt(null);
-    setUserText("");
   };
 
-  sendUserText = async () => {
-    if (userText.trim() === "") return;
-    setResult(null);
-    try {
-      const res = await fetch('http://192.168.2.23:3000/routes/grokRoute', {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ prompt: userText })
-      });
-      const data = await res.json();
-      setResult(data.answer);
-    }
-    catch (error) {
-      console.error("Error sending user text:", error);
-    }
-    setUserText("");
+  const handleBack = () => {
+    resetAI();
+    router.back();
   };
 
-  const dismissKeyboard = () => {
+  const sendUserText = async () => {
+    const text = userText.trim();
+    if (!text || loading) return;
+    setUserText('');
     Keyboard.dismiss();
+    appendMessage({ role: 'user', content: text });
+    scrollToEnd();
+    setLoading(true);
+    try {
+      const data = await postPrompt(text);
+      appendMessage({ role: 'assistant', content: data.answer });
+    } catch (error) {
+      console.error('Error sending question:', error);
+      appendMessage({
+        role: 'assistant',
+        content: describeError(error),
+        error: true,
+      });
+    } finally {
+      setLoading(false);
+      scrollToEnd();
+    }
   };
 
   return (
-        <SafeAreaView style={styles.container}>
-            
-            <TouchableOpacity onPress={() => {router.back(); resetAI(); }} style={styles.backButton}>
-                <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-                <View style={styles.imageContainer}>
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                    <Image
-                        source={{ uri: photoUri }}
-                        style={[styles.image, { width: Number(width), height: Number(height) }]}
-                        resizeMode='contain'
-                    />
-                    </TouchableWithoutFeedback>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <StatusBar style="dark" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={8}>
+          <FontAwesome5 name="chevron-left" size={16} color={colors.cream} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Analysis</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
-                </View>
-            <ScrollView>
-            <View style={styles.resultContainer}>
-                {result == null ? ( <ActivityIndicator size="large" color="#4caf50" /> ) : (
-                    <Markdown style={{ body: styles.resultText }}>{result}</Markdown>
-                )}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+        <ScrollView
+          ref={scrollRef}
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={scrollToEnd}
+        >
+          <View style={styles.imageCard}>
+            <Image source={{ uri: photoUri }} style={styles.image} resizeMode="cover" />
+          </View>
+
+          {messages.map((m, i) => (
+            <MessageBubble key={i} message={m} />
+          ))}
+
+          {loading && (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.sepia} />
+              <Text style={styles.loadingText}>The historian is thinking…</Text>
             </View>
-            </ScrollView>
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    value={userText}
-                    onChangeText={setUserText}
-                    placeholder="Ask for further details here"
-                    placeholderTextColor='rgba(0, 100, 0, 0.5)'
-                    multiline={true}
-                /> 
-                <TouchableOpacity onPress={sendUserText} style={styles.sendButton}>
-                    <Text style={styles.sendButtonText}>Send</Text>
-                </TouchableOpacity>
-            </View>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+          )}
+        </ScrollView>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={userText}
+            onChangeText={setUserText}
+            placeholder="Ask a follow-up question…"
+            placeholderTextColor={colors.tan}
+            multiline
+            editable={!loading}
+          />
+          <TouchableOpacity
+            onPress={sendUserText}
+            style={[styles.sendButton, (loading || !userText.trim()) && styles.sendButtonDisabled]}
+            disabled={loading || !userText.trim()}
+            activeOpacity={0.85}
+          >
+            <FontAwesome5 name="paper-plane" size={16} color={colors.cream} />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+function MessageBubble({ message }) {
+  const isUser = message.role === 'user';
+  return (
+    <View style={[styles.bubbleRow, isUser ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
+      <View
+        style={[
+          styles.bubble,
+          isUser ? styles.bubbleUser : styles.bubbleAssistant,
+          message.error && styles.bubbleError,
+        ]}
+      >
+        {isUser ? (
+          <Text style={styles.bubbleUserText}>{message.content}</Text>
+        ) : (
+          <Markdown style={markdownStyles}>{message.content}</Markdown>
+        )}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: "#e6f5e6"
-    },
-    backButton: {
-        position: 'absolute',
-        top: 50,
-        left: 20,
-        padding: 10,
-        backgroundColor: "#4caf50", 
-        shadowColor: "#000",
-        shadowOpacity: 0.2,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 4,
-        borderRadius: 5,
-        zIndex: 10,      // <-- add this
-        elevation: 10,   // <-- add this (for Android)
-
-    },
-    backButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    imageContainer: {
-        marginTop: 10,          // small margin to avoid status bar/back button overlap
-        justifyContent: 'flex-start', 
-        alignItems: 'center',
-        paddingTop: 10, // padding to avoid overlap with the back button
-
-    },
-    image: {
-        maxWidth: 300,
-        maxHeight: 200,
-        borderRadius: 10,
-    },
-    resultContainer: {
-        justifyContent: 'flex-start',
-        alignItems: 'center',
-        padding: 15,
-    },
-    resultText: {
-    color: '#000',
-    fontSize: 16,
-    padding: 5,
-    },
-    inputContainer: {
-        width: '100%',
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 10,
-        backgroundColor: "#f0fdf0",
-        borderTopWidth: 1,
-        borderColor: "#cceccc",
-    },
-    input: {
-    flex: 1,
+  safe: { flex: 1, backgroundColor: colors.parchment },
+  flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.parchment,
+  },
+  backButton: {
+    width: 40,
     height: 40,
-    borderColor: "#4caf50",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-    marginRight: 8,
-    },
-    sendButton: {
-    backgroundColor: "#4caf50",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
+    borderRadius: 20,
+    backgroundColor: colors.sepia,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...type.title,
+    fontSize: 20,
+  },
+  headerSpacer: { width: 40 },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  imageCard: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.lg,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    },
-    sendButtonText: {
-        color: "#fff",
-        fontSize: 16,
-        fontWeight: "600",
-    },
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  image: {
+    width: '100%',
+    height: 220,
+    borderRadius: radius.md,
+    backgroundColor: colors.tanLight,
+  },
+  bubbleRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  bubbleRowLeft: { justifyContent: 'flex-start' },
+  bubbleRowRight: { justifyContent: 'flex-end' },
+  bubble: {
+    maxWidth: '90%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+  },
+  bubbleAssistant: {
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderTopLeftRadius: radius.sm,
+  },
+  bubbleUser: {
+    backgroundColor: colors.sepia,
+    borderTopRightRadius: radius.sm,
+  },
+  bubbleError: {
+    backgroundColor: '#F8DDD7',
+    borderColor: colors.error,
+  },
+  bubbleUserText: {
+    color: colors.cream,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  loadingText: {
+    ...type.label,
+    marginLeft: spacing.sm,
+    fontStyle: 'italic',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.cream,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.white,
+    color: colors.ink,
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.sepia,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: { opacity: 0.4 },
 });
+
+const markdownStyles = {
+  body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
+  strong: { color: colors.sepiaDeep, fontWeight: '700' },
+  em: { color: colors.inkMuted, fontStyle: 'italic' },
+  heading1: { color: colors.sepiaDeep, fontSize: 20, fontWeight: '700', marginTop: 6, marginBottom: 6 },
+  heading2: { color: colors.sepiaDeep, fontSize: 18, fontWeight: '700', marginTop: 6, marginBottom: 6 },
+  bullet_list: { marginVertical: 4 },
+  list_item: { marginVertical: 2 },
+  paragraph: { marginTop: 0, marginBottom: 8 },
+};
