@@ -73,7 +73,7 @@ Scan the QR code with Expo Go (Android) or the Camera app (iOS), or press `a` / 
 `Mobile/constants/api.js` controls the backend URL:
 
 ```js
-const DEFAULT_API_URL = 'http://192.168.2.23:3000';
+const DEFAULT_API_URL = 'http://192.168.2.247:3000';
 ```
 
 Change this to your machine's LAN IP (the phone must reach it). Alternatively, set it in `app.json` under `expo.extra`:

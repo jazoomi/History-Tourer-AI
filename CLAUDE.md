@@ -45,7 +45,7 @@ Users photograph historical items â†’ Backend analyzes via Groq's Llama model â†
 
 ## Configuration Notes
 
-- Backend server URL: `Mobile/constants/api.js` (default `http://192.168.2.23:3000`; override via `expoConfig.extra.apiUrl`)
+- Backend server URL: `Mobile/constants/api.js` (default `http://192.168.2.247:3000`; override via `expoConfig.extra.apiUrl`)
 - Groq API key: loaded from `Backend/.env` (`GROQ_API_KEY`); see `Backend/.env.example`
 - Backend start script: `npm start` (uses `node --env-file=.env src/index.js`, requires Node 20.6+)
 - AI model: `meta-llama/llama-4-scout-17b-16e-instruct` (override via `GROQ_MODEL` env var)

@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-const DEFAULT_API_URL = 'http://192.168.2.23:3000';
+const DEFAULT_API_URL = 'http://192.168.2.247:3000';
 
 const fromExtra = Constants?.expoConfig?.extra?.apiUrl;
 
