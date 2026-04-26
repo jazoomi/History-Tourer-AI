@@ -1,6 +1,9 @@
 import Constants from 'expo-constants';
 
-const DEFAULT_API_URL = 'http://192.168.2.247:3000';
+// `extra.apiUrl` is supplied by app.config.js, which in turn reads `API_URL`
+// from Mobile/.env. The fallback below only kicks in if the config failed to
+// resolve, which shouldn't happen in normal development.
+const DEFAULT_API_URL = 'http://localhost:3000';
 
 const fromExtra = Constants?.expoConfig?.extra?.apiUrl;
 

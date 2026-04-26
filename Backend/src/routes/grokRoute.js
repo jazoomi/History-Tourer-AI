@@ -1,31 +1,24 @@
 import express from 'express';
-import { AI, resetAI } from '../services/AI.js';
+import { AI } from '../services/AI.js';
 
 const router = express.Router();
 
 router.post('/', async (req, res) => {
-    const { prompt } = req.body || {};
+    const { prompt, history } = req.body || {};
+
     if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: 'Prompt is required and must be a string' });
     }
+    if (history !== undefined && !Array.isArray(history)) {
+        return res.status(400).json({ error: 'History must be an array of messages' });
+    }
 
     try {
-        const answer = await AI(prompt);
-        return res.json({ answer });
+        const { answer, history: updatedHistory } = await AI(prompt, history || []);
+        return res.json({ answer, history: updatedHistory });
     } catch (error) {
         console.error('Error during AI request:', error);
         return res.status(502).json({ error: 'Failed to get AI response. Please try again.' });
-    }
-});
-
-router.delete('/', (_req, res) => {
-    try {
-        resetAI();
-        console.log('Resetting AI...');
-        return res.status(200).json({ status: 'reset' });
-    } catch (error) {
-        console.error('Error resetting AI:', error);
-        return res.status(500).json({ error: 'Error resetting AI' });
     }
 });
 

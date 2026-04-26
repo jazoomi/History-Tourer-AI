@@ -10,6 +10,7 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.4.1",
     "groq-sdk": "^0.30.0"
   }
 }

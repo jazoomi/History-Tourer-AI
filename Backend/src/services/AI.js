@@ -31,49 +31,53 @@ Rules:
 - If uncertain, take a guess but be sure to mention "I am guessing."
 `;
 
-const buildInitialHistory = () => [
-    { role: "system", content: SYSTEM_PROMPT }
-];
-
-let conversationHistory = buildInitialHistory();
-
 const isImagePrompt = (value) =>
     typeof value === "string" &&
     (value.startsWith("data:image/jpeg;base64,") ||
-     value.startsWith("data:image/png;base64,") ||
-     value.startsWith("data:image/webp;base64,"));
+        value.startsWith("data:image/png;base64,") ||
+        value.startsWith("data:image/webp;base64,"));
 
-export async function AI(prompt) {
-    const request = isImagePrompt(prompt)
-        ? {
-            role: "user",
-            content: [
-                { type: "image_url", image_url: { url: prompt } }
-            ]
-        }
+const buildUserMessage = (prompt) =>
+    isImagePrompt(prompt)
+        ? { role: "user", content: [{ type: "image_url", image_url: { url: prompt } }] }
         : { role: "user", content: prompt };
 
-    conversationHistory.push(request);
-    try {
-    const completion = await groq.chat.completions.create({
-        messages: conversationHistory,
-        model,
-        temperature: 1,
-        max_completion_tokens: 1024,
-        top_p: 1,
-        stream: false,
-        stop: null
+const buildSystemMessage = () => ({ role: "system", content: SYSTEM_PROMPT });
+
+// Strip base64 image blobs out of stored history so the client never re-uploads
+// them on follow-up questions. The textual analysis in the assistant reply is
+// enough context for the model.
+const sanitizeHistory = (history) =>
+    history.map((msg) => {
+        if (msg.role === "user" && Array.isArray(msg.content)) {
+            return { role: "user", content: "[Image of historical item attached]" };
+        }
+        return msg;
     });
 
-        const assistantMessage = completion.choices[0].message.content;
-        conversationHistory.push({ role: "assistant", content: assistantMessage });
-        return assistantMessage;
-    } catch (error) {
-        console.error('Error during AI request:', error);
-        throw new Error('Failed to get AI response. Please try again.');
-    }
-}
+export async function AI(prompt, history = []) {
+    const hasSystem = history.some((m) => m.role === "system");
+    const baseHistory = hasSystem ? history : [buildSystemMessage(), ...history];
+    const messages = [...baseHistory, buildUserMessage(prompt)];
 
-export function resetAI() {
-    conversationHistory = buildInitialHistory();
+    try {
+        const completion = await groq.chat.completions.create({
+            messages,
+            model,
+            temperature: 1,
+            max_completion_tokens: 1024,
+            top_p: 1,
+            stream: false,
+            stop: null,
+        });
+
+        const assistantContent = completion.choices[0].message.content;
+        const assistantMessage = { role: "assistant", content: assistantContent };
+        const updatedHistory = sanitizeHistory([...messages, assistantMessage]);
+
+        return { answer: assistantContent, history: updatedHistory };
+    } catch (error) {
+        console.error("Error during AI request:", error);
+        throw new Error("Failed to get AI response. Please try again.");
+    }
 }
