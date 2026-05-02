@@ -4,7 +4,9 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -67,6 +69,7 @@ export default function ImageDetail() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userText, setUserText] = useState('');
+  const [imageOpen, setImageOpen] = useState(false);
   const scrollRef = useRef(null);
 
   const appendMessage = useCallback((message) => {
@@ -165,9 +168,18 @@ export default function ImageDetail() {
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={scrollToEnd}
         >
-          <View style={styles.imageCard}>
+          <TouchableOpacity
+            style={styles.imageCard}
+            activeOpacity={0.9}
+            onPress={() => setImageOpen(true)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View full image"
+          >
             <Image source={{ uri: photoUri }} style={styles.image} resizeMode="cover" />
-          </View>
+            <View style={styles.expandBadge}>
+              <FontAwesome5 name="expand" size={12} color={colors.cream} />
+            </View>
+          </TouchableOpacity>
 
           {messages.map((m, i) => (
             <MessageBubble key={i} message={m} />
@@ -201,6 +213,27 @@ export default function ImageDetail() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={imageOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageOpen(false)}
+      >
+        <StatusBar style="light" />
+        <Pressable style={styles.modalBackdrop} onPress={() => setImageOpen(false)}>
+          <Image source={{ uri: photoUri }} style={styles.modalImage} resizeMode="contain" />
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setImageOpen(false)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close full image"
+          >
+            <FontAwesome5 name="times" size={18} color={colors.cream} />
+          </TouchableOpacity>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -274,6 +307,38 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: radius.md,
     backgroundColor: colors.tanLight,
+  },
+  expandBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: spacing.xxl + spacing.md,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bubbleRow: {
     flexDirection: 'row',
