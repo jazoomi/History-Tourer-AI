@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View, Image, Keyboard, KeyboardAvoidingView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Camera, CameraView } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -16,6 +16,13 @@ export default function Start() {
   const [photo, setPhoto] = useState(null);
   const [hasPermission, setHasPermission] = useState(null);
   const [capturing, setCapturing] = useState(false);
+  const [userPrompt, setUserPrompt] = useState('');
+
+  const resetPreview = () => {
+    setPhoto(null);
+    setUserPrompt('');
+    Keyboard.dismiss();
+  };
 
   useEffect(() => {
     (async () => {
@@ -53,12 +60,14 @@ export default function Start() {
 
   const analyzePhoto = () => {
     if (!photo) return;
+    Keyboard.dismiss();
     router.push({
       pathname: '/ImageDetail',
       params: {
         photoUri: photo.uri,
         width: String(photo.width ?? 0),
         height: String(photo.height ?? 0),
+        userPrompt: userPrompt.trim(),
       },
     });
   };
@@ -91,29 +100,55 @@ export default function Start() {
       <View style={styles.previewContainer}>
         <StatusBar style="light" />
         <Image source={{ uri: photo.uri }} style={styles.previewImage} resizeMode="cover" />
-        <SafeAreaView style={styles.previewOverlay} edges={['top', 'bottom']} pointerEvents="box-none">
-          <TouchableOpacity style={styles.closeButton} onPress={() => setPhoto(null)}>
-            <FontAwesome5 name="times" size={18} color={colors.cream} />
-          </TouchableOpacity>
-          <View style={styles.previewActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.retakeButton]}
-              onPress={() => setPhoto(null)}
-              activeOpacity={0.85}
-            >
-              <FontAwesome5 name="redo" size={16} color={colors.sepiaDeep} />
-              <Text style={[styles.actionText, { color: colors.sepiaDeep }]}>Retake</Text>
+        <View style={styles.previewScrim} pointerEvents="none" />
+        <KeyboardAvoidingView
+          style={StyleSheet.absoluteFill}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+          pointerEvents="box-none"
+        >
+          <SafeAreaView style={styles.previewOverlay} edges={['top', 'bottom']} pointerEvents="box-none">
+            <TouchableOpacity style={styles.closeButton} onPress={resetPreview}>
+              <FontAwesome5 name="times" size={18} color={colors.cream} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.analyzeButton]}
-              onPress={analyzePhoto}
-              activeOpacity={0.85}
-            >
-              <FontAwesome5 name="search" size={16} color={colors.cream} />
-              <Text style={styles.actionText}>Analyze</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <View style={styles.previewBottom}>
+                <View style={styles.promptCard}>
+                  <Text style={styles.promptLabel}>Add a question (optional)</Text>
+                  <TextInput
+                    style={styles.promptInput}
+                    value={userPrompt}
+                    onChangeText={setUserPrompt}
+                    placeholder="e.g. What dynasty is this from?"
+                    placeholderTextColor={colors.tan}
+                    multiline
+                    maxLength={500}
+                    returnKeyType="done"
+                    blurOnSubmit
+                  />
+                </View>
+                <View style={styles.previewActions}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.retakeButton]}
+                    onPress={resetPreview}
+                    activeOpacity={0.85}
+                  >
+                    <FontAwesome5 name="redo" size={16} color={colors.sepiaDeep} />
+                    <Text style={[styles.actionText, { color: colors.sepiaDeep }]}>Retake</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.analyzeButton]}
+                    onPress={analyzePhoto}
+                    activeOpacity={0.85}
+                  >
+                    <FontAwesome5 name="search" size={16} color={colors.cream} />
+                    <Text style={styles.actionText}>Analyze</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
@@ -216,15 +251,47 @@ const styles = StyleSheet.create({
 
   previewContainer: { flex: 1, backgroundColor: '#000' },
   previewImage: { ...StyleSheet.absoluteFillObject },
+  previewScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
   previewOverlay: {
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
   },
+  previewBottom: {
+    paddingBottom: spacing.xl,
+  },
+  promptCard: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  promptLabel: {
+    color: colors.cream,
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    opacity: 0.8,
+    marginBottom: spacing.xs,
+  },
+  promptInput: {
+    minHeight: 40,
+    maxHeight: 120,
+    color: colors.cream,
+    fontSize: 16,
+    lineHeight: 22,
+    paddingVertical: 0,
+  },
   previewActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: spacing.xl,
   },
   actionButton: {
     flex: 1,

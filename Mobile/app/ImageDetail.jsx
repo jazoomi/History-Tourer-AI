@@ -23,14 +23,14 @@ import { colors, radius, spacing, type } from '../constants/theme';
 
 const REQUEST_TIMEOUT_MS = 90_000;
 
-async function postPrompt(prompt, history) {
+async function postPrompt({ prompt, image, history }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const res = await fetch(ENDPOINTS.grok, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, history }),
+      body: JSON.stringify({ prompt, image, history }),
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -59,8 +59,11 @@ function describeError(error) {
 }
 
 export default function ImageDetail() {
-  const { photoUri } = useLocalSearchParams();
-  const [messages, setMessages] = useState([]);
+  const { photoUri, userPrompt } = useLocalSearchParams();
+  const initialPrompt = typeof userPrompt === 'string' ? userPrompt.trim() : '';
+  const [messages, setMessages] = useState(
+    initialPrompt ? [{ role: 'user', content: initialPrompt }] : [],
+  );
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userText, setUserText] = useState('');
@@ -85,7 +88,7 @@ export default function ImageDetail() {
         });
         const dataUrl = 'data:image/jpeg;base64,' + base64;
         console.log(`Sending image: ${(dataUrl.length / 1024).toFixed(0)} KB`);
-        const data = await postPrompt(dataUrl);
+        const data = await postPrompt({ image: dataUrl, prompt: initialPrompt });
         if (cancelled) return;
         setHistory(data.history);
         appendMessage({ role: 'assistant', content: data.answer });
@@ -108,7 +111,7 @@ export default function ImageDetail() {
     return () => {
       cancelled = true;
     };
-  }, [photoUri, appendMessage, scrollToEnd]);
+  }, [photoUri, initialPrompt, appendMessage, scrollToEnd]);
 
   const handleBack = () => {
     router.back();
@@ -123,7 +126,7 @@ export default function ImageDetail() {
     scrollToEnd();
     setLoading(true);
     try {
-      const data = await postPrompt(text, history);
+      const data = await postPrompt({ prompt: text, history });
       setHistory(data.history);
       appendMessage({ role: 'assistant', content: data.answer });
     } catch (error) {

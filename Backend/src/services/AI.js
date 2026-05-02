@@ -37,28 +37,54 @@ const isImagePrompt = (value) =>
         value.startsWith("data:image/png;base64,") ||
         value.startsWith("data:image/webp;base64,"));
 
-const buildUserMessage = (prompt) =>
-    isImagePrompt(prompt)
-        ? { role: "user", content: [{ type: "image_url", image_url: { url: prompt } }] }
-        : { role: "user", content: prompt };
+
+const buildUserMessage = ({ prompt, image }) => {
+    if (image) {
+        const content = [{ type: "image_url", image_url: { url: image } }];
+        const text = typeof prompt === "string" ? prompt.trim() : "";
+        if (text) content.unshift({ type: "text", text });
+        return { role: "user", content };
+    }
+    return { role: "user", content: prompt };
+};
 
 const buildSystemMessage = () => ({ role: "system", content: SYSTEM_PROMPT });
 
 // Strip base64 image blobs out of stored history so the client never re-uploads
-// them on follow-up questions. The textual analysis in the assistant reply is
-// enough context for the model.
+// them on follow-up questions. Preserve any user-provided text from the
+// multimodal turn so the model keeps the original question in context.
 const sanitizeHistory = (history) =>
     history.map((msg) => {
         if (msg.role === "user" && Array.isArray(msg.content)) {
-            return { role: "user", content: "[Image of historical item attached]" };
+            const textParts = msg.content
+                .filter((p) => p.type === "text" && typeof p.text === "string")
+                .map((p) => p.text.trim())
+                .filter(Boolean);
+            const placeholder = "[Image of historical item attached]";
+            const content =
+            textParts.length > 0
+              ? [
+                  placeholder,
+                  "",
+                  ...textParts,
+                ].join("\n")
+              : placeholder;
+            return { role: "user", content };
         }
         return msg;
     });
 
-export async function AI(prompt, history = []) {
+export async function AI({ prompt, image, history = [] } = {}) {
+    if (image && !isImagePrompt(image)) {
+        throw new Error("Image must be a data URL of type image/jpeg, image/png, or image/webp.");
+    }
+    if (!image && (typeof prompt !== "string" || !prompt.trim())) {
+        throw new Error("A text prompt is required when no image is provided.");
+    }
+
     const hasSystem = history.some((m) => m.role === "system");
     const baseHistory = hasSystem ? history : [buildSystemMessage(), ...history];
-    const messages = [...baseHistory, buildUserMessage(prompt)];
+    const messages = [...baseHistory, buildUserMessage({ prompt, image })];
 
     try {
         const completion = await groq.chat.completions.create({
