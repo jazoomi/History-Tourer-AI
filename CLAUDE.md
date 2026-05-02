@@ -2,9 +2,9 @@
 - Treat the two packages (`Backend/`, `Mobile/`) as independent npm workspaces — install/run commands always target one of them.
 - `Backend/.env` holds the real `GROQ_API_KEY`; never commit or echo it.
 
-# History Tourer AI
+# Artifact AI
 
-A mobile app that identifies historical artifacts from a photo and lets the user chat with an AI "expert historian" about them.
+A mobile app for tourists that identifies artifacts and historical items from a photo and lets the user chat with an AI "expert historian" about them.
 
 ## Overview
 
@@ -13,7 +13,7 @@ User snaps a photo → Mobile app base64-encodes it → Backend forwards it to G
 ## Repository Layout
 
 ```
-History-Tourer-AI/
+Artifact-AI/                # repo folder is still History-Tourer-AI on disk
 ├── Backend/                # Node/Express API (port 3000)
 │   ├── src/
 │   │   ├── index.js            # Express setup, CORS, /health, error handler

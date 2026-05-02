@@ -16,9 +16,9 @@ export default function Index() {
           <View style={styles.iconCircle}>
             <FontAwesome5 name="landmark" size={42} color={colors.cream} />
           </View>
-          <Text style={styles.title}>History Tourer</Text>
+          <Text style={styles.title}>Artifact AI</Text>
           <Text style={styles.subtitle}>
-            Point your camera at any historical item and receive expert analysis in seconds.
+            Point your camera at any artifact you encounter and get instant insight from an expert historian.
           </Text>
         </View>
 
@@ -31,7 +31,7 @@ export default function Index() {
             <FontAwesome5 name="camera" size={18} color={colors.cream} style={styles.buttonIcon} />
             <Text style={styles.buttonText}>Begin Tour</Text>
           </TouchableOpacity>
-          <Text style={styles.hint}>Your tour guide is an AI historian.</Text>
+          <Text style={styles.hint}>Your guide is an AI historian.</Text>
         </View>
       </View>
     </SafeAreaView>

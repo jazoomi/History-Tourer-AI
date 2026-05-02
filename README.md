@@ -1,6 +1,8 @@
 
 
-Developing a AI powered history tourer guide. Take a picture of a image and get details of the artificat with historical contexts, perfect for tourists!
+# Artifact AI
+
+An AI-powered guide for tourists. Snap a photo of an artifact or historical item you encounter and get instant insight — name, purpose, and historical context — from an expert AI historian, plus follow-up Q&A.
 
 
 <video src="https://github.com/user-attachments/assets/c24be3e8-10dc-4781-acf3-3748b5e5c9a9"></video>

@@ -86,7 +86,7 @@ export default function Start() {
         <FontAwesome5 name="camera" size={48} color={colors.sepia} />
         <Text style={styles.statusTitle}>Camera access needed</Text>
         <Text style={styles.statusText}>
-          Please enable camera access in your device settings to analyze historical items.
+          Please enable camera access in your device settings to analyze artifacts.
         </Text>
         <TouchableOpacity style={styles.primaryButton} onPress={() => router.back()}>
           <Text style={styles.primaryButtonText}>Go Back</Text>
@@ -162,7 +162,7 @@ export default function Start() {
           <FontAwesome5 name="chevron-left" size={18} color={colors.cream} />
         </TouchableOpacity>
         <View style={styles.captureWrap}>
-          <Text style={styles.captureHint}>Frame a historical item and tap the shutter</Text>
+          <Text style={styles.captureHint}>Frame an artifact and tap the shutter</Text>
           <TouchableOpacity
             style={[styles.shutter, capturing && styles.shutterActive]}
             onPress={takePicture}

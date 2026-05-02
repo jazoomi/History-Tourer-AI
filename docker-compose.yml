@@ -1,4 +1,4 @@
-# Local dev stack for History Tourer. Run with `docker compose up --build`.
+# Local dev stack for Artifact AI. Run with `docker compose up --build`.
 #
 # Kept intentionally minimal for now: just the API container. When you pick a
 # database (Phase 1) and object storage (Phase 2), add them here as additional
@@ -9,8 +9,8 @@ services:
     build:
       context: ./Backend
       dockerfile: Dockerfile
-    image: history-tourer-api:dev
-    container_name: history-tourer-api
+    image: artifact-ai-api:dev
+    container_name: artifact-ai-api
     env_file:
       - ./Backend/.env
     environment:

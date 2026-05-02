@@ -1,5 +1,5 @@
 {
-  "name": "history-tourer-backend",
+  "name": "artifact-ai-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "src/index.js",

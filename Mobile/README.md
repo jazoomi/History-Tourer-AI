@@ -1,6 +1,6 @@
-# History Tourer AI
+# Artifact AI
 
-A mobile app that identifies and explains historical items from a photo. Take a picture, and an AI historian returns its name, purpose, and historical context — then answers your follow-up questions.
+A mobile app for tourists that identifies and explains artifacts from a photo. Take a picture, and an AI historian returns its name, purpose, and historical context — then answers your follow-up questions.
 
 > This README covers the whole project. The repo is a monorepo with a Node/Express backend (`/Backend`) and an Expo React Native client (`/Mobile`).
 
@@ -91,7 +91,7 @@ Change this to your machine's LAN IP (the phone must reach it). Alternatively, s
 ## Project layout
 
 ```
-History-Tourer-AI/
+Artifact-AI/
 +-- Backend/
 |   +-- .env                 # gitignored; holds GROQ_API_KEY
 |   +-- .env.example
