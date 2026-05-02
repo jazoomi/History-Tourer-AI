@@ -4,7 +4,7 @@ import { AI } from '../services/AI.js';
 const router = express.Router();
 
 router.post('/', async (req, res) => {
-    const { prompt, history } = req.body || {};
+    const { prompt, history } = req.body;
 
     if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: 'Prompt is required and must be a string' });
@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const { answer, history: updatedHistory } = await AI(prompt, history || []);
+        const { answer, history: updatedHistory } = await AI(prompt, history);
         return res.json({ answer, history: updatedHistory });
     } catch (error) {
         console.error('Error during AI request:', error);

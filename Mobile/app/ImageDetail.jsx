@@ -61,8 +61,6 @@ function describeError(error) {
 export default function ImageDetail() {
   const { photoUri } = useLocalSearchParams();
   const [messages, setMessages] = useState([]);
-  // Opaque conversation history kept in sync with the stateless backend. The
-  // server returns the updated history on every response; we just pass it back.
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userText, setUserText] = useState('');
@@ -87,9 +85,9 @@ export default function ImageDetail() {
         });
         const dataUrl = 'data:image/jpeg;base64,' + base64;
         console.log(`Sending image: ${(dataUrl.length / 1024).toFixed(0)} KB`);
-        const data = await postPrompt(dataUrl, []);
+        const data = await postPrompt(dataUrl);
         if (cancelled) return;
-        setHistory(data.history || []);
+        setHistory(data.history);
         appendMessage({ role: 'assistant', content: data.answer });
       } catch (error) {
         console.error('Error analyzing image:', error);
@@ -126,7 +124,7 @@ export default function ImageDetail() {
     setLoading(true);
     try {
       const data = await postPrompt(text, history);
-      setHistory(data.history || []);
+      setHistory(data.history);
       appendMessage({ role: 'assistant', content: data.answer });
     } catch (error) {
       console.error('Error sending question:', error);
